@@ -1,6 +1,5 @@
-import type { DatabaseSync } from "node:sqlite";
 import type { Level } from "./domain/constants";
-import { getDatabase } from "./db";
+import { getSql } from "./db";
 
 export type Score = {
   id: number;
@@ -15,7 +14,7 @@ type ScoreRow = {
   username: string;
   attempts: number;
   level: Level;
-  created_at: string;
+  created_at: string | Date;
 };
 
 type ScoreInput = {
@@ -24,25 +23,27 @@ type ScoreInput = {
   level: Level;
 };
 
-export function insertScore(input: ScoreInput, database: DatabaseSync = getDatabase()): void {
-  database
-    .prepare("INSERT INTO scores (username, attempts, level) VALUES (?, ?, ?)")
-    .run(input.username, input.attempts, input.level);
+export async function insertScore(input: ScoreInput): Promise<void> {
+  await getSql()`
+    INSERT INTO scores (username, attempts, level)
+    VALUES (${input.username}, ${input.attempts}, ${input.level})
+  `;
 }
 
-export function listTopScores(limit = 50, database: DatabaseSync = getDatabase()): Score[] {
+export async function listTopScores(limit = 50): Promise<Score[]> {
   const safeLimit = Math.max(1, Math.min(Math.floor(limit), 50));
-  const rows = database
-    .prepare(
-      "SELECT id, username, attempts, level, created_at FROM scores ORDER BY attempts ASC, created_at DESC LIMIT ?",
-    )
-    .all(safeLimit) as unknown as ScoreRow[];
+  const rows = await getSql()`
+    SELECT id, username, attempts, level, created_at
+    FROM scores
+    ORDER BY attempts ASC, created_at DESC
+    LIMIT ${safeLimit}
+  ` as ScoreRow[];
 
   return rows.map((row) => ({
     id: row.id,
     username: row.username,
     attempts: row.attempts,
     level: row.level,
-    createdAt: row.created_at,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
   }));
 }

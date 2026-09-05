@@ -10,6 +10,8 @@
 
 Implement the phases in order (Phase 1 → Phase 9). Each phase lists concrete deliverables and a "Definition of done" checklist. Do not skip validation/security steps to save time. Where a decision was open in `SPEC.md`, the resolved decision is restated here and SPEC should be considered superseded.
 
+For the current database migration from SQLite to Neon Serverless Postgres, use Section 10 as the active implementation plan. Earlier SQLite-specific sections remain useful historical context for the existing app, but Section 10 supersedes SQLite storage decisions.
+
 ---
 
 ## 1. Resolved Decisions (supersedes SPEC.md Section 15)
@@ -295,3 +297,172 @@ No JSON REST API is required since Server Actions handle all mutations; a `GET /
 - [ ] SQL injection and script-injection payloads in the username are stored/rendered harmlessly (verified by a test).
 - [ ] Exit clears the cookie and returns to `/`.
 - [ ] All unit and E2E tests pass; production build succeeds.
+
+---
+
+## 10. SQLite to Neon Serverless Postgres Migration Plan
+
+**Status:** Active plan for replacing the existing SQLite data layer.
+**Assumption:** `.env` already contains the Neon connection string, preferably as `DATABASE_URL`. Do not commit `.env` or print its values in logs.
+
+### 10.1 Target decisions
+
+| Topic | Decision |
+|---|---|
+| Database | Neon Serverless Postgres |
+| Driver | `@neondatabase/serverless` with tagged template queries |
+| ORM | None for this migration; keep the repository small and SQL-first |
+| Schema owner | `db/schema.sql`, converted from SQLite DDL to Postgres DDL |
+| Migration runner | Explicit npm script, not DDL on every request |
+| Repository contract | Convert score reads/writes to async functions |
+| Test database | Use `DATABASE_URL`, optionally pointing to a dedicated test database or branch |
+
+### 10.2 Files expected to change
+
+| File | Required change |
+|---|---|
+| `package.json` | Add `@neondatabase/serverless`; add `db:migrate` script |
+| `db/schema.sql` | Replace SQLite-specific DDL with Postgres-compatible DDL |
+| `lib/db.ts` | Remove `node:sqlite`; export a Neon SQL client and migration helper |
+| `lib/scores-repository.ts` | Replace synchronous prepared statements with async Neon queries |
+| `app/game/page.tsx` | Await `listTopScores()` |
+| `app/game/actions.ts` | Await `insertScore()` on win |
+| `tests/unit/repository.test.ts` | Replace temp SQLite setup with isolated Postgres test setup |
+| `README.md` | Update setup, env vars, migration, and database notes |
+
+### 10.3 Dependency and environment setup
+
+1. Install the Neon driver:
+
+   ```bash
+   npm install @neondatabase/serverless
+   ```
+
+2. Standardize environment variables:
+
+   ```text
+  DATABASE_URL=postgresql://...
+  GAME_COOKIE_SECRET=...
+   ```
+
+3. Add an env helper or validation inside `lib/db.ts` so a missing `DATABASE_URL` fails with a clear server-side error.
+
+**Definition of done:** app startup and migration scripts never depend on SQLite paths or `node:sqlite`.
+
+### 10.4 Postgres schema
+
+Replace `db/schema.sql` with Postgres-compatible SQL:
+
+```sql
+CREATE TABLE IF NOT EXISTS scores (
+  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  username text NOT NULL,
+  attempts integer NOT NULL CHECK (attempts > 0),
+  level text NOT NULL CHECK (level IN ('BEGINNER', 'EASY', 'MEDIUM', 'HARD')),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_scores_leaderboard
+  ON scores (attempts ASC, created_at DESC);
+```
+
+If existing SQLite rows must be preserved, temporarily change identity handling during import or use `OVERRIDING SYSTEM VALUE` so historical `id` values can be copied safely. If there is no production SQLite data worth preserving, start Neon with an empty `scores` table.
+
+**Definition of done:** `db:migrate` can be run repeatedly without dropping data or duplicating indexes.
+
+### 10.5 Database adapter design
+
+Update `lib/db.ts` to own only connection and migration concerns:
+
+1. Create a Neon SQL client from `process.env.DATABASE_URL`.
+2. Export `sql` for repository modules.
+3. Export a migration function used by a CLI script, not by page renders.
+4. Avoid reading or writing local files except inside the migration script that loads `db/schema.sql`.
+
+Expected shape:
+
+```ts
+import { neon } from "@neondatabase/serverless";
+
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) throw new Error("DATABASE_URL is required");
+
+export const sql = neon(databaseUrl);
+```
+
+For executing `db/schema.sql`, use a small script such as `scripts/migrate-database.mjs` that reads the SQL file and executes its statements against Neon. Keep this outside request handling.
+
+**Definition of done:** importing app pages or actions does not run DDL.
+
+### 10.6 Repository changes
+
+Change `lib/scores-repository.ts` from sync SQLite calls to async Neon calls:
+
+1. `insertScore(input): Promise<void>` uses a tagged template insert.
+2. `listTopScores(limit = 50): Promise<Score[]>` clamps `limit`, queries with `ORDER BY attempts ASC, created_at DESC LIMIT ${safeLimit}`, and maps `created_at` to `createdAt`.
+3. Keep all user values parameterized through the Neon tagged template.
+4. Preserve the public `Score` type unless tests reveal a timestamp serialization mismatch.
+
+Call-site updates:
+
+```ts
+const scores = await listTopScores();
+await insertScore({ username: state.username, attempts, level: state.level });
+```
+
+**Definition of done:** no application code imports `node:sqlite` or `DatabaseSync`.
+
+### 10.7 Testing strategy
+
+1. Repository tests should use `DATABASE_URL` if present.
+2. Before each repository test, truncate only the test-owned table:
+
+```sql
+TRUNCATE TABLE scores RESTART IDENTITY;
+```
+
+3. If `DATABASE_URL` is missing in local development, skip repository integration tests with a clear message.
+4. E2E tests should also use `DATABASE_URL`. Use deterministic usernames or truncate the table during global setup so leaderboard assertions remain stable.
+5. Keep the SQL injection regression test: the payload username must be stored as text and the `scores` table must survive.
+
+**Definition of done:** `npm run test:unit`, `npm run test:e2e`, `npm run lint`, and `npm run build` pass against the Neon-backed implementation.
+
+### 10.8 Data migration path, if preserving SQLite data
+
+1. Stop writes to the SQLite-backed app.
+2. Back up `data/getme.db`.
+3. Export SQLite rows:
+
+```sql
+SELECT id, username, attempts, level, created_at FROM scores ORDER BY id;
+```
+
+4. Import into Neon inside a transaction, preserving IDs.
+5. Validate counts, min/max IDs, leaderboard order, and a sample of usernames containing punctuation.
+6. Reset the Postgres identity sequence above the highest imported ID.
+7. Run the game once in production-like mode and confirm a new score receives a fresh ID.
+
+If no SQLite production data exists, skip this section and run only the schema migration.
+
+### 10.9 Implementation order
+
+1. Add Neon dependency and `db:migrate` script.
+2. Convert `db/schema.sql` to Postgres.
+3. Replace `lib/db.ts` with Neon client export.
+4. Convert `lib/scores-repository.ts` to async Neon queries.
+5. Update `app/game/page.tsx` and `app/game/actions.ts` to await repository calls.
+6. Convert repository tests to use the Neon test database.
+7. Update README setup and commands.
+8. Run migration, then run lint, unit tests, e2e tests, and build.
+
+### 10.10 Cutover checklist
+
+- [ ] `.env` contains `DATABASE_URL` and is not committed.
+- [ ] Test environment uses `DATABASE_URL`, optionally pointing to an isolated Neon branch.
+- [ ] `npm run db:migrate` succeeds and is idempotent.
+- [ ] `npm run test:unit` passes.
+- [ ] `npm run test:e2e` passes.
+- [ ] `npm run lint` passes.
+- [ ] `npm run build` passes.
+- [ ] Manual browser flow writes a score to Neon and renders it on `/game`.
+- [ ] SQLite files and Node 22.5 `node:sqlite` requirement are removed from README after code migration.

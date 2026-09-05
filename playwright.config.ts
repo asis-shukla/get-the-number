@@ -1,4 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { loadEnvConfig } from "@next/env";
+
+loadEnvConfig(process.cwd());
+
+const databaseUrl = process.env.DATABASE_URL;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -12,6 +17,7 @@ export default defineConfig({
   },
   webServer: {
     command: "npm run dev -- --port 3100",
+    env: databaseUrl ? { DATABASE_URL: databaseUrl } : undefined,
     url: "http://127.0.0.1:3100",
     reuseExistingServer: false,
     timeout: 120_000,

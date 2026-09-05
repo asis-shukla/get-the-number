@@ -1,20 +1,41 @@
-import { readFileSync } from "node:fs";
-import { mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { neon } from "@neondatabase/serverless";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
-const defaultDatabasePath = join(process.cwd(), "data", "getme.db");
-let database: DatabaseSync | undefined;
+type SqlClient = ReturnType<typeof neon>;
 
-export function createDatabase(databasePath: string): DatabaseSync {
-  mkdirSync(dirname(databasePath), { recursive: true });
-  const connection = new DatabaseSync(databasePath);
-  const schema = readFileSync(join(process.cwd(), "db", "schema.sql"), "utf8");
-  connection.exec(schema);
-  return connection;
+let sqlClient: SqlClient | undefined;
+
+export function getDatabaseUrl(): string {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required");
+  }
+
+  return databaseUrl;
 }
 
-export function getDatabase(): DatabaseSync {
-  database ??= createDatabase(defaultDatabasePath);
-  return database;
+export function createSqlClient(databaseUrl = getDatabaseUrl()): SqlClient {
+  return neon(databaseUrl);
+}
+
+export function getSql(): SqlClient {
+  sqlClient ??= createSqlClient();
+  return sqlClient;
+}
+
+export async function migrateDatabase(client = getSql()): Promise<void> {
+  const schema = await readFile(
+    join(process.cwd(), "db", "schema.sql"),
+    "utf8",
+  );
+  const statements = schema
+    .split(";")
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+
+  for (const statement of statements) {
+    await client.query(statement);
+  }
 }

@@ -11,7 +11,7 @@ export default async function GamePage() {
   const game = await readGameState();
   if (!game) redirect("/");
 
-  const scores = listTopScores();
+  const scores = await listTopScores();
 
   return (
     <main className="page-shell">

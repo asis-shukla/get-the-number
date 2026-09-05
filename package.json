@@ -3,17 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=20.9.0"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run db:migrate && next build",
     "start": "next start",
+    "db:migrate": "node scripts/migrate-database.mjs",
     "lint": "eslint",
     "test:unit": "vitest run",
     "test:e2e": "cross-env GETME_TEST_MODE=1 GETME_TEST_TARGET=7 GETME_TEST_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef GAME_COOKIE_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef playwright test"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "@next/env": "^16.3.4",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"

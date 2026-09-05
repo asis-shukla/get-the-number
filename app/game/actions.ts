@@ -21,7 +21,7 @@ export async function submitGuess(_previousResult: ActionResult | null, formData
 
   if (hint.kind === "win") {
     await writeGameState({ ...state, attempts, status: "won" });
-    insertScore({ username: state.username, attempts, level: state.level });
+    await insertScore({ username: state.username, attempts, level: state.level });
     return { status: "won", attempts, message: `You got it in ${attempts} ${attempts === 1 ? "try" : "tries"}!` };
   }
 
