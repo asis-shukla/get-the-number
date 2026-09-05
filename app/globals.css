@@ -69,6 +69,7 @@ h1 em, h2 em { color: var(--accent); font-family: Georgia, serif; font-weight: 4
 .status-banner, .terminal-message { display: flex; justify-content: space-between; gap: 1rem; border-radius: .35rem; padding: 1rem 1.1rem; font-size: .85rem; }
 .status-banner strong { white-space: nowrap; font-size: .72rem; }.status-hint { background: rgba(184,207,189,.45); color: #3c5b46; }.status-invalid, .status-lost { background: #f6d8cd; color: var(--accent-dark); }.status-won { background: #dbe8d9; color: #2d5438; }
 .terminal-message { flex-direction: column; min-height: 10rem; justify-content: center; font-size: 1rem; }.terminal-message strong { font-family: Georgia, serif; font-size: 2rem; font-weight: 400; }.terminal-message span { color: inherit; opacity: .75; }
+@keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
 .empty-state { border: 1px dashed var(--line); padding: 2rem; color: var(--ink-muted); font-size: .9rem; }
 .section-title { margin-top: .4rem; font-size: 1.7rem; letter-spacing: -.04em; }
 

@@ -14,8 +14,10 @@ test("starts a game, wins, and writes one leaderboard score", async ({ page }) =
   await page.getByRole("button", { name: "Check guess" }).click();
 
   await expect(page.getByText("You got it in 1 try!" )).toBeVisible();
-  await expect(page.getByRole("cell", { name: username })).toBeVisible();
   await expect(page.getByRole("button", { name: "Check guess" })).toHaveCount(0);
+
+  await expect(page).toHaveURL("/", { timeout: 5000 });
+  await expect(page.getByRole("cell", { name: username })).toBeVisible();
 });
 
 test("rejects invalid setup input", async ({ page }) => {

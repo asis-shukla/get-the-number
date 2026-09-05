@@ -1,21 +1,35 @@
 import { GameSetupForm } from "@/app/components/game-setup-form";
+import { Leaderboard } from "@/app/components/leaderboard";
+import { listTopScores } from "@/lib/scores-repository";
 
-export default function Home() {
+export default async function Home() {
+  const scores = await listTopScores();
+
   return (
     <main className="page-shell">
-      <div className="site-mark"><span className="site-mark-dot" /> GETME / 01</div>
+      <div className="site-mark">
+        <span className="site-mark-dot" /> GETME / 01
+      </div>
       <section className="hero-grid">
         <div className="hero-copy">
           <p className="eyebrow">A small game of nerve and numbers</p>
-          <h1>Find the number.<br /><em>Trust your instinct.</em></h1>
+          <h1>
+            Find the number.
+            <br />
+            <em>Trust your instinct.</em>
+          </h1>
           <p className="hero-description">
-            Pick a range, make your guesses, and climb the board with the fewest attempts.
-            The answer is waiting somewhere between zero and your chosen limit.
+            Pick a range, make your guesses, and climb the board with the fewest
+            attempts. The answer is waiting somewhere between zero and your
+            chosen limit.
           </p>
           <div className="rule-row">
-            <span>01</span><span>Choose a level</span>
-            <span>02</span><span>Read the hint</span>
-            <span>03</span><span>Beat the board</span>
+            <span>01</span>
+            <span>Choose a level</span>
+            <span>02</span>
+            <span>Read the hint</span>
+            <span>03</span>
+            <span>Beat the board</span>
           </div>
         </div>
         <div className="setup-panel">
@@ -29,7 +43,12 @@ export default function Home() {
           <GameSetupForm />
         </div>
       </section>
-      <footer className="site-footer"><span>ANONYMOUS PLAY</span><span>ONE GUESS AT A TIME</span><span>© GETME</span></footer>
+      <Leaderboard scores={scores} />
+      <footer className="site-footer">
+        <span>ANONYMOUS PLAY</span>
+        <span>ONE GUESS AT A TIME</span>
+        <span>© GETME</span>
+      </footer>
     </main>
   );
 }
