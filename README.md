@@ -1,4 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GetMe
+
+GetMe is an anonymous number-guessing game built with Next.js, React, Tailwind CSS, and SQLite. Choose a range, make valid guesses, read the directional hints, and try to finish with the fewest attempts.
+
+## Requirements
+
+- Node.js 22.5 or newer
+- npm
+
+The application uses Node's built-in `node:sqlite` module, so Node 22.5+ is required.
+
+## Setup
+
+```bash
+npm install
+copy .env.example .env.local
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Put the generated 64-character hexadecimal value in `.env.local` as `GAME_COOKIE_SECRET`.
+
+Run the development server:
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Commands
+
+```bash
+npm run lint
+npm run test:unit
+npm run test:e2e
+npm run build
+npm start
+```
+
+The local SQLite database is created at `data/getme.db`. It is intentionally ignored by Git. Active games live in an encrypted, HTTP-only cookie and assume a single persistent application instance.
+
+## Rules and security
+
+The supported ranges are 10, 50, 100, and 500. Invalid guesses do not consume attempts. A game ends after the selected range number of valid attempts, or immediately after a correct guess. Completed games are locked, and a win writes one score to the top-50 leaderboard.
+
+Unlike the legacy PHP behavior, a lost game reveals the target after the final attempt. Usernames are validated and escaped, and all score writes use parameterized SQLite statements.
+
+Server Actions enforce same-origin requests through Next.js. Accounts, rate limiting, distributed sessions, migrations, and public JSON APIs are outside this project's scope.
 
 ## Getting Started
 
