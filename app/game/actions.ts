@@ -5,6 +5,7 @@ import { getHint } from "@/lib/domain/hints";
 import type { ActionResult } from "@/lib/domain/types";
 import { validateGuess } from "@/lib/domain/validation";
 import { insertScore } from "@/lib/scores-repository";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function submitGuess(_previousResult: ActionResult | null, formData: FormData): Promise<ActionResult> {
@@ -22,6 +23,7 @@ export async function submitGuess(_previousResult: ActionResult | null, formData
   if (hint.kind === "win") {
     await writeGameState({ ...state, attempts, status: "won" });
     await insertScore({ username: state.username, attempts, level: state.level });
+    revalidatePath("/");
     return { status: "won", attempts, message: `You got it in ${attempts} ${attempts === 1 ? "try" : "tries"}!` };
   }
 
