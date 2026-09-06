@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS scores (
-  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   username text NOT NULL,
   attempts integer NOT NULL CHECK (attempts > 0),
   level text NOT NULL CHECK (level IN ('BEGINNER', 'EASY', 'MEDIUM', 'HARD')),
