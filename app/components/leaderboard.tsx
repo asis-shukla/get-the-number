@@ -1,6 +1,6 @@
 import type { Score } from "@/lib/scores-repository";
 
-export function Leaderboard({ scores }: { scores: Score[] }) {
+export function Leaderboard({ scores, error = false }: { scores: Score[]; error?: boolean }) {
   return (
     <section aria-labelledby="leaderboard-title">
       <div className="mb-4 flex items-end justify-between gap-4">
@@ -10,7 +10,11 @@ export function Leaderboard({ scores }: { scores: Score[] }) {
         </div>
         <span className="text-xs font-semibold uppercase tracking-[0.16em] text-(--ink-muted)">Top 50</span>
       </div>
-      {scores.length === 0 ? (
+      {error ? (
+        <p className="empty-state empty-state--error" role="status">
+          The scoreboard could not be loaded right now. You can still start a new game.
+        </p>
+      ) : scores.length === 0 ? (
         <p className="empty-state">No finished games yet. Be the first name on the board.</p>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-(--line) bg-white/70">

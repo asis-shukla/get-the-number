@@ -1,9 +1,17 @@
 import { GameSetupForm } from "@/app/components/game-setup-form";
 import { Leaderboard } from "@/app/components/leaderboard";
-import { listTopScores } from "@/lib/scores-repository";
+import { listTopScores, type Score } from "@/lib/scores-repository";
 
 export default async function Home() {
-  const scores = await listTopScores();
+  let scores: Score[] = [];
+  let leaderboardError = false;
+
+  try {
+    scores = await listTopScores();
+  } catch (error) {
+    console.error("Failed to load leaderboard", error);
+    leaderboardError = true;
+  }
 
   return (
     <main className="page-shell">
@@ -43,11 +51,11 @@ export default async function Home() {
           <GameSetupForm />
         </div>
       </section>
-      <Leaderboard scores={scores} />
+      <Leaderboard scores={scores} error={leaderboardError} />
       <footer className="site-footer">
         <span>ANONYMOUS PLAY</span>
         <span>ONE GUESS AT A TIME</span>
-        <span>© GETME</span>
+        <span>© GETME @{new Date().getFullYear()}</span>
       </footer>
     </main>
   );
